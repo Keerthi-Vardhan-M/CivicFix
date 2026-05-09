@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicPulse Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-5: 1.25rem;
+      --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+      --radius-sm: 0.75rem; --radius-md: 1rem; --radius-lg: 1.5rem; --radius-xl: 2rem; --radius-full: 999px;
+      --bg: linear-gradient(135deg, #bcc0f4 0%, #b8bef6 40%, #bdd3f7 100%);
+      --shell: rgba(251, 252, 255, 0.75);
+      --surface: rgba(255, 255, 255, 0.78);
+      --surface-2: rgba(255, 255, 255, 0.58);
+      --border: rgba(26, 30, 42, 0.09);
+      --text: #1a1d25;
+      --muted: #6c7384;
+      --primary: #181b23;
+      --accent: #79c9e8;
+      --success: #77c68d;
+      --warning: #efc46f;
+      --danger: #eb8b96;
+      --shadow: 0 24px 70px rgba(69, 76, 130, 0.18);
+    }
+
+    html[data-theme="dark"] {
+      --bg: radial-gradient(circle at top left, #0b1220 0%, #020617 45%, #020314 100%);
+      --shell: rgba(15, 23, 42, 0.95);
+      --surface: rgba(15, 23, 42, 0.98);
+      --surface-2: rgba(30, 41, 59, 0.96);
+      --border: rgba(148, 163, 184, 0.35);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --primary: #f97316;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #facc15;
+      --danger: #fb7185;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.85);
+    }
+    
+    html[data-theme="dark"] input,
+    html[data-theme="dark"] textarea,
+    html[data-theme="dark"] select {
+      background-color: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: 'Instrument Sans', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      padding: var(--space-6);
+    }
+    button, input, textarea { font: inherit; }
+    .app {
+      min-height: calc(100vh - 3rem);
+      background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(239,248,255,.72));
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 2rem;
+      backdrop-filter: blur(22px);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      overflow: hidden;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: var(--space-6) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,.22);
+    }
+    .logo, .nav-btn {
+      width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center;
+    }
+    .logo {
+      background: var(--primary); color: white; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.1rem;
+    }
+    .nav-group { display: grid; gap: 14px; }
+    .nav-btn {
+      border: 0; background: rgba(255,255,255,.72); color: var(--muted); cursor: pointer; transition: .18s ease;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+    }
+    .nav-btn.active, .nav-btn:hover { background: var(--primary); color: white; transform: translateY(-1px); }
+    .main { padding: var(--space-6); display: grid; gap: var(--space-6); min-width: 0; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+    }
+    .tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .tab-btn {
+      border: 0; background: rgba(255,255,255,.72); color: var(--muted); border-radius: 16px; padding: 12px 18px; cursor: pointer;
+    }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .header-title h1 {
+      margin: 0; font-family: 'Outfit', sans-serif; font-size: clamp(2.2rem, 1.4rem + 2vw, 3.8rem); letter-spacing: -0.04em; font-weight: 600;
+    }
+    .header-title p { margin: 8px 0 0; color: var(--muted); max-width: 62ch; }
+    .page { display: none; }
+    .page.active { display: grid; gap: var(--space-6); }
+    .grid {
+      display: grid; grid-template-columns: minmax(320px, 1fr) minmax(380px, 1.2fr); gap: var(--space-5);
+    }
+    .stack { display: grid; gap: var(--space-5); min-width: 0; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: var(--space-5);
+      min-width: 0;
+    }
+    .panel-header { display: flex; justify-content: space-between; gap: var(--space-4); align-items: flex-start; margin-bottom: var(--space-4); }
+    .panel-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.7rem; letter-spacing: -0.03em; font-weight: 500; }
+    .panel-sub { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; }
+    .field { display: grid; gap: 8px; }
+    .label { color: var(--muted); font-size: 0.92rem; }
+    .input, textarea {
+      width: 100%; border: 1px solid rgba(26,30,42,.08); background: rgba(255,255,255,.78); border-radius: 16px; padding: 14px 16px; color: var(--text); outline: none;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .upload {
+      min-height: 180px; border-radius: 20px; border: 1px dashed rgba(26,30,42,.16); background: linear-gradient(135deg, rgba(203,201,247,.55), rgba(220,243,250,.58));
+      display: grid; place-items: center; text-align: center; color: var(--muted); cursor: pointer; overflow: hidden; position: relative;
+    }
+    .upload img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .map-wrap {
+      height: 260px; border-radius: 20px; overflow: hidden; border: 1px solid rgba(26,30,42,.08); background: rgba(255,255,255,.7);
+    }
+    .map {
+      width: 100%; height: 100%; min-height: 260px;
+    }
+    .button-row, .chip-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      border: 0; border-radius: 16px; padding: 14px 18px; cursor: pointer; font-weight: 600;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-secondary { background: rgba(255,255,255,.82); color: var(--text); border: 1px solid rgba(26,30,42,.08); }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-full); background: rgba(255,255,255,.8); color: var(--muted); border: 1px solid rgba(26,30,42,.06); font-size: 0.92rem;
+    }
+    .issue-list, .steps, .track-box { display: grid; gap: 12px; }
+    .issue-card {
+      border: 0; text-align: left; cursor: pointer; border-radius: 20px; padding: 18px; display: grid; gap: 12px;
+    }
+    .issue-card h3 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.45rem; letter-spacing: -0.03em; font-weight: 500; }
+    .issue-card .meta { display:flex; justify-content:space-between; gap: 12px; align-items:center; flex-wrap: wrap; font-size: .92rem; }
+    .muted { color: var(--muted); }
+    .step, .row {
+      display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(26,30,42,.06);
+    }
+    .step:last-child, .row:last-child { border-bottom: 0; }
+    .icon {
+      width: 38px; height: 38px; border-radius: 12px; background: var(--primary); color: white; display: grid; place-items: center;
+    }
+    .progress-line { height: 7px; background: rgba(26,30,42,.08); border-radius: var(--radius-full); overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #b6ef9b, #70caee); }
+    .status-pill { padding: 6px 10px; border-radius: var(--radius-full); font-size: 0.84rem; }
+    .status-submitted { background: rgba(239,196,111,.2); color: #90681a; }
+    .status-acknowledged, .status-inprogress, .status-in_progress { background: rgba(121,201,232,.2); color: #1f7188; }
+    .status-resolved { background: rgba(119,198,141,.2); color: #2f7e4a; }
+    .status-rejected { background: rgba(235,139,150,.2); color: #a14854; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .stat { background: var(--surface-2); border: 1px solid rgba(26,30,42,.06); border-radius: 18px; padding: 16px; }
+    .stat strong { display:block; font-family:'Outfit', sans-serif; font-size: 1.8rem; margin-top:8px; }
+    .letter {
+      background: rgba(255,255,255,.66); border: 1px solid rgba(26,30,42,.06); border-radius: 16px; padding: 16px; max-height: 240px; overflow: auto; white-space: pre-wrap; color: var(--muted);
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; }
+    @media (max-width: 1080px) {
+      body { padding: 1rem; }
+      .app { grid-template-columns: 1fr; }
+      .sidebar { flex-direction: row; justify-content: space-between; }
+      .nav-group { grid-auto-flow: column; }
+      .grid, .split, .stats { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .main { padding: 1rem; }
+      .step, .row { grid-template-columns: auto 1fr; }
+      .step > :last-child, .row > :last-child { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="nav-group">
+        <div class="logo">C</div>
+        <button class="nav-btn active" data-page="dashboard" aria-label="Dashboard">⌂</button>
+        <button class="nav-btn" data-page="report" aria-label="Report">＋</button>
+        <button class="nav-btn" data-page="track" aria-label="Track">◎</button>
+      </div>
+      <div></div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="tabs">
+          <button class="tab-btn active" data-page="dashboard">Dashboard</button>
+          <button class="tab-btn" data-page="report">New Report</button>
+          <button class="tab-btn" data-page="track">Track Issue</button>
+        </div>
+        <button id="themeToggle" type="button">
+          Dark mode
+        </button>
+      </div>
+
+      <section id="dashboard" class="page active">
+        <div class="header-title">
+          <h1>Civic Dashboard</h1>
+          <p>Clean workspace for filing issues, seeing live complaints, and tracking city response through your FastAPI and Supabase backend.</p>
+        </div>
+        <div class="grid">
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Recent Reports</h2>
+                  
+                </div>
+                <button class="btn btn-secondary" id="refreshBtn" type="button">Refresh</button>
+              </div>
+              <input id="searchInput" class="input" placeholder="Search by location, category, department, or status" />
+              <div class="issue-list" id="issueList" style="margin-top: 1rem; max-height: 600px; overflow-y: auto; padding-right: 6px;"></div>
+
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Community Impact Map</h2>
+                  <p class="panel-sub">All issue pins plotted from backend data.</p>
+                </div>
+              </div>
+              <div class="map-wrap"><div id="impactMap" class="map"></div></div>
+              <div class="stats" id="statsBox" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Top Departments</h2>
+                  <p class="panel-sub">Sorted by report load.</p>
+                </div>
+              </div>
+              <div id="deptList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="report" class="page">
+        <div class="header-title">
+          <h1>Submit New Report</h1>
+          <p>Upload photo, set the location, describe the issue, and let the three backend agents process it.</p>
+        </div>
+        <div class="grid">
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Complaint Form</h2>
+                  <p class="panel-sub">Separate new file, no change to your existing frontend.</p>
+                </div>
+              </div>
+              <div class="stack">
+                <div class="field">
+                  <div class="label">Upload photo</div>
+                  <label class="upload" id="uploadBox">
+                    <input id="imageInput" type="file" accept="image/*" hidden />
+                    <img id="previewImage" alt="Selected complaint image" hidden />
+                    <span id="uploadText">Click to add complaint photo</span>
+                  </label>
+                </div>
+                <div class="split">
+                  <div class="field">
+                    <div class="label">Location description</div>
+                    <input id="locationName" class="input" placeholder="Main St & 4th Ave, Bengaluru" />
+                  </div>
+                  <div class="field">
+                    <div class="label">Optional category hint</div>
+                    <input id="categoryHint" class="input" placeholder="roads, water, garbage" />
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="label">Describe the issue</div>
+                  <textarea id="description" placeholder="Large pothole causing dangerous bike slips and traffic buildup."></textarea>
+                </div>
+                <div class="field">
+                  <div class="label">Set location on map</div>
+                  <div class="map-wrap"><div id="reportMap" class="map"></div></div>
+                  <div class="chip-row">
+                    <div class="chip" id="coordsChip">No location selected</div>
+                    <button class="btn btn-secondary" id="myLocationBtn" type="button">Use My Location</button>
+                  </div>
+                </div>
+                <div class="button-row">
+                  <button class="btn btn-primary" id="submitBtn" type="button">Submit Complaint</button>
+                  <button class="btn btn-secondary" id="resetBtn" type="button">Reset</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Agent Progress</h2>
+                  <p class="panel-sub">Steps returned from <span class="mono">POST /report</span>.</p>
+                </div>
+              </div>
+              <div class="steps" id="stepsBox">
+                <div class="step"><div class="icon">A</div><div><strong>Waiting for submission</strong><div class="muted">No backend request yet.</div></div><span>—</span></div>
+              </div>
+            </div>
+
+            <div class="panel" id="resultPanel" style="display:none;">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Complaint Result</h2>
+                  <p class="panel-sub">Analysis, routing, and generated complaint letter.</p>
+                </div>
+              </div>
+              <div class="stack">
+                <div class="chip-row" id="metaChips"></div>
+                <div class="chip-row" id="deptChips"></div>
+                <div class="letter" id="letterBox"></div>
+                <div class="chip-row" id="actionChips"></div>
+                <div class="field">
+                  <div class="label">Tracking ID</div>
+                  <div class="letter mono" id="trackingIdBox">No complaint submitted yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="track" class="page">
+        <div class="header-title">
+          <h1>Track Issue</h1>
+          <p>Fetch a complaint by ID using your backend route <span class="mono">GET /issue/{id}</span>.</p>
+        </div>
+        <div class="grid">
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Issue Lookup</h2>
+                  <p class="panel-sub">Paste full UUID from a report response.</p>
+                </div>
+              </div>
+              <div class="stack">
+                <input id="trackInput" class="input" placeholder="Enter issue UUID" />
+                <div class="button-row">
+                  <button class="btn btn-primary" id="trackBtn" type="button">Fetch Issue</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">Issue Details</h2>
+                  <p class="panel-sub">Loaded from Supabase-backed backend data.</p>
+                </div>
+              </div>
+              <div id="trackResult" class="track-box muted">No issue loaded yet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const API_BASE = window.CIVICPULSE_API || 'http://localhost:8000';
+
+    const root = document.documentElement;
+    const THEME_KEY = 'civicpulse-theme';
+
+    function applySavedTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
+      const toggle = document.getElementById('themeToggle');
+      if (!toggle) return;
+
+      if (saved === 'dark') {
+        root.setAttribute('data-theme', 'dark');
+        toggle.textContent = 'Light mode';
+      } else {
+        root.removeAttribute('data-theme');
+        toggle.textContent = 'Dark mode';
+      }
+    }
+    function initThemeToggle() {
+      const toggle = document.getElementById('themeToggle');
+      if (!toggle) return;
+
+      toggle.addEventListener('click', () => {
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+          root.removeAttribute('data-theme');
+          localStorage.setItem(THEME_KEY, 'light');
+        } else {
+          root.setAttribute('data-theme', 'dark');
+          localStorage.setItem(THEME_KEY, 'dark');
+        }
+        applySavedTheme();
+      });
+      
+      applySavedTheme();
+    }
+
+
+    let issues = [];
+    let selectedLat = null;
+    let selectedLng = null;
+    let selectedImage = null;
+    let reportMap = null;
+    let impactMap = null;
+    let reportMarker = null;
+    let impactMarkers = [];
+
+    function escapeHtml(str) {
+      return String(str ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === page));
+      document.querySelectorAll('.nav-btn, .tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+      setTimeout(() => {
+        if (reportMap) reportMap.invalidateSize();
+        if (impactMap) impactMap.invalidateSize();
+      }, 180);
+    }
+
+    document.querySelectorAll('[data-page]').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
+
+    function normalizeIssue(issue) {
+      return {
+        id: issue.id,
+        category: issue.category || 'other',
+        description: issue.description || '',
+        summary: issue.summary || issue.description || 'No summary available',
+        severity: Number(issue.severity || 0),
+        status: issue.status || 'submitted',
+        locationname: issue.locationname || issue.location_name || 'Unknown location',
+        locationlat: issue.locationlat ?? issue.location_lat,
+        locationlng: issue.locationlng ?? issue.location_lng,
+        reportcount: issue.reportcount ?? issue.report_count ?? 1,
+        department: issue.department || 'Unknown department',
+        deptemail: issue.deptemail || issue.dept_email || '',
+        tweeturl: issue.tweeturl || issue.tweet_url || '',
+        createdat: issue.createdat || issue.created_at || ''
+      };
+    }
+
+    function initMaps() {
+      reportMap = L.map('reportMap').setView([12.9716, 77.5946], 12);
+      impactMap = L.map('impactMap').setView([12.9716, 77.5946], 12);
+      
+      [reportMap, impactMap].forEach(map => {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(map);
+      });
+      reportMap.on('click', e => {
+        selectedLat = e.latlng.lat;
+        selectedLng = e.latlng.lng;
+        if (reportMarker) reportMap.removeLayer(reportMarker);
+        reportMarker = L.marker([selectedLat, selectedLng]).addTo(reportMap);
+        document.getElementById('coordsChip').textContent = `${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
+      });
+      setTimeout(() => {
+        reportMap.invalidateSize();
+        impactMap.invalidateSize();
+      }, 250);
+    }
+
+    function renderStats(list) {
+      const resolved = list.filter(i => i.status === 'resolved').length;
+      const avgSeverity = list.length ? (list.reduce((sum, i) => sum + i.severity, 0) / list.length).toFixed(1) : '0.0';
+      document.getElementById('statsBox').innerHTML = `
+        <div class="stat"><span class="muted">Total reports</span><strong>${list.length}</strong></div>
+        <div class="stat"><span class="muted">Resolved</span><strong>${resolved}</strong></div>
+        <div class="stat"><span class="muted">Avg severity</span><strong>${avgSeverity}</strong></div>`;
+    }
+
+    function renderDepartments(list) {
+      const counts = {};
+      list.forEach(issue => counts[issue.department] = (counts[issue.department] || 0) + issue.reportcount);
+      const rows = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+      document.getElementById('deptList').innerHTML = rows.length ? rows.map(([dept, total], i) => `
+        <div class="row">
+          <div class="icon">${i + 1}</div>
+          <div><strong>${escapeHtml(dept)}</strong><div class="muted">Report load</div></div>
+          <strong>${total}</strong>
+        </div>`).join('') : '<div class="muted">No department data available.</div>';
+    }
+
+    function drawImpactMap(list) {
+      impactMarkers.forEach(marker => impactMap.removeLayer(marker));
+      impactMarkers = [];
+      list.forEach(issue => {
+        if (issue.locationlat == null || issue.locationlng == null) return;
+        const color = issue.severity >= 7 ? '#eb8b96' : issue.severity >= 4 ? '#efc46f' : '#77c68d';
+        const marker = L.circleMarker([issue.locationlat, issue.locationlng], {
+          radius: Math.max(7, issue.severity + 2),
+          color: '#ffffff',
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.9
+        }).addTo(impactMap).bindPopup(`<strong>${escapeHtml(issue.category)}</strong><br>${escapeHtml(issue.locationname)}<br>Status: ${escapeHtml(issue.status)}`);
+        impactMarkers.push(marker);
+      });
+      if (impactMarkers.length) {
+        const group = L.featureGroup(impactMarkers);
+        impactMap.fitBounds(group.getBounds().pad(0.2));
+      } else {
+        impactMap.setView([12.9716, 77.5946], 12);
+      }
+      setTimeout(() => impactMap.invalidateSize(), 50);
+    }
+
+    function renderIssues(list) {
+      const container = document.getElementById('issueList');
+      if (!list.length) {
+        container.innerHTML = '<div class="muted">No reports found.</div>';
+        renderStats([]);
+        renderDepartments([]);
+        drawImpactMap([]);
+        return;
+      }
+      container.innerHTML = list.slice(0, 8).map(issue => {
+        const bg = issue.severity >= 7 ? '#f6d9de' : issue.severity >= 4 ? '#f6eccf' : '#daf0de';
+        return `
+          <button class="issue-card" style="background:${bg}" onclick="trackIssueById('${issue.id}')">
+            <div>
+              <div class="chip">${escapeHtml(issue.category)}</div>
+              <h3>${escapeHtml(issue.locationname)}</h3>
+              <div class="muted">${escapeHtml(issue.summary)}</div>
+            </div>
+            <div class="meta">
+              <span>${issue.reportcount} reports</span>
+              <span class="status-pill status-${issue.status}">${escapeHtml(issue.status.replaceAll('_', ' '))}</span>
+            </div>
+          </button>`;
+      }).join('');
+      renderStats(list);
+      renderDepartments(list);
+      drawImpactMap(list);
+    }
+    async function loadHeatmap() {
+      try {
+        const res = await fetch(`${API_BASE}/heatmap`);
+        const data = await res.json();
+
+        data.hotspots.forEach(cluster => {
+          const color =
+            cluster.hotspot_level === "critical" ? "#ef4444" :
+            cluster.hotspot_level === "high"     ? "#f97316" :
+                                               "#eab308";
+
+          const radius =
+            cluster.hotspot_level === "critical" ? 500 :
+            cluster.hotspot_level === "high"     ? 350 : 200;
+
+          L.circle([cluster.lat, cluster.lng], {
+            radius: radius,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.25,
+            weight: 2
+          }).addTo(impactMap).bindPopup(`
+            <strong>${cluster.dominant_category.toUpperCase()} Hotspot</strong><br/>
+            ${cluster.issue_count} reports &middot; Avg severity ${cluster.avg_severity}/10<br/>
+             Level: <b>${cluster.hotspot_level}</b>
+          `);
+         });
+      } catch (err) {
+        console.error("Heatmap load failed:", err);
+      }
+    }
+
+
+    
+
+    async function loadIssues() {
+      try {
+        const res = await fetch(`${API_BASE}/issues`);
+        const data = await res.json();
+        issues = (data.issues || []).map(normalizeIssue);
+        renderIssues(issues);
+      } catch (err) {
+        document.getElementById('issueList').innerHTML = `<div class="muted">Could not connect to ${API_BASE}/issues</div>`;
+      }
+    }
+
+    function setSteps(items) {
+      const box = document.getElementById('stepsBox');
+      box.innerHTML = '';
+      items.forEach((text, idx) => {
+        const el = document.createElement('div');
+        el.className = 'step';
+        el.innerHTML = `<div class="icon">${idx + 1}</div><div><strong>${escapeHtml(text)}</strong><div class="progress-line"><div class="progress-fill" style="width:${Math.min(100, (idx + 1) * 18)}%"></div></div></div><strong>${Math.min(100, (idx + 1) * 18)}%</strong>`;
+        box.appendChild(el);
+      });
+    }
+
+    function renderResult(data) {
+      const panel = document.getElementById('resultPanel');
+      panel.style.display = 'block';
+      const analysis = data.analysis || {};
+      const dept = data.department || {};
+      document.getElementById('metaChips').innerHTML = `
+        <div class="chip">Issue ID: ${(data.issueid || 'n/a').slice(0, 8)}</div>
+        <div class="chip">Category: ${escapeHtml(analysis.category || 'unknown')}</div>
+        <div class="chip">Severity: ${escapeHtml(analysis.severity || 'n/a')}/10</div>
+        <div class="chip">Urgency: ${escapeHtml(analysis.urgency || 'unknown')}</div>`;
+      document.getElementById('deptChips').innerHTML = `
+        <div class="chip">Dept: ${escapeHtml(dept.dept || 'Not found')}</div>
+        ${dept.email ? `<div class="chip">${escapeHtml(dept.email)}</div>` : ''}
+        ${dept.twitter ? `<div class="chip">${escapeHtml(dept.twitter)}</div>` : ''}`;
+      document.getElementById('letterBox').textContent = data.complaint?.body || data.message || 'No complaint body returned.';
+      const trackingId = data.issue_id || data.issueid || data.issue?.id || '';
+      document.getElementById('trackingIdBox').textContent = trackingId || 'Tracking ID not returned by backend.';
+      document.getElementById('actionChips').innerHTML = `
+        ${trackingId ? `<button class="btn btn-secondary" onclick="trackIssueById('${trackingId}')">Track This Issue</button>` : ''}
+        ${trackingId ? `<button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${trackingId}')">Copy Tracking ID</button>` : ''}
+        <div class="chip">Email ${(data.email_sent ?? data.emailsent) ? 'sent' : 'not sent'}</div>
+        ${(data.tweet_url || data.tweeturl) ? `<a class="chip" href="${data.tweet_url || data.tweeturl}" target="_blank" rel="noopener noreferrer">Open Tweet</a>` : ''}`;
+    }
+
+    async function submitComplaint() {
+      const description = document.getElementById('description').value.trim();
+      const locationName = document.getElementById('locationName').value.trim();
+      const hint = document.getElementById('categoryHint').value.trim();
+      if (!description || !locationName || selectedLat == null || selectedLng == null) {
+        alert('Please fill description, location description, and pick a map location.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('description', hint ? `${description} | hint: ${hint}` : description);
+      formData.append('location_name', locationName);
+      formData.append('lat', selectedLat);
+      formData.append('lng', selectedLng);
+      if (selectedImage) formData.append('image', selectedImage);
+      setSteps(['Uploading complaint', 'Analyzing issue', 'Checking duplicates', 'Routing department', 'Drafting complaint', 'Saving issue']);
+      try {
+        const res = await fetch(`${API_BASE}/report`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+          const msg = data.detail || data.error || data.message || 'Complaint submission failed';
+          setSteps((data.steps || []).map(step => step.message || 'Processing error'));
+          document.getElementById('resultPanel').style.display = 'block';
+          document.getElementById('metaChips').innerHTML = '<div class="chip">Submission failed</div>';
+          document.getElementById('deptChips').innerHTML = '';
+          document.getElementById('letterBox').textContent = msg;
+          document.getElementById('actionChips').innerHTML = '';
+          document.getElementById('trackingIdBox').textContent = 'No tracking ID available.';
+          return;
+        }
+        setSteps((data.steps || []).map(step => step.message || 'Processing complete'));
+        renderResult(data);
+        loadIssues();
+      } catch (err) {
+        setSteps([`Error: ${err.message}`]);
+        document.getElementById('resultPanel').style.display = 'block';
+        document.getElementById('metaChips').innerHTML = '<div class="chip">Network or backend error</div>';
+        document.getElementById('deptChips').innerHTML = '';
+        document.getElementById('letterBox').textContent = err.message;
+        document.getElementById('actionChips').innerHTML = '';
+        document.getElementById('trackingIdBox').textContent = 'No tracking ID available.';
+      }
+    }
+
+    async function fetchIssue() {
+      const id = document.getElementById('trackInput').value.trim();
+      if (!id) return;
+      const box = document.getElementById('trackResult');
+      box.innerHTML = 'Loading issue...';
+      try {
+        const res = await fetch(`${API_BASE}/issue/${id}`);
+        if (!res.ok) throw new Error('Issue not found');
+        const issue = normalizeIssue(await res.json());
+        box.innerHTML = `
+          <div class="chip-row">
+            <div class="chip">${escapeHtml(issue.category)}</div>
+            <div class="chip">Severity ${issue.severity}/10</div>
+            <div class="chip">${escapeHtml(issue.status)}</div>
+          </div>
+          <div><strong>${escapeHtml(issue.locationname)}</strong><div class="mono">${escapeHtml(issue.id)}</div></div>
+          <div>${escapeHtml(issue.summary)}</div>
+          <div class="chip-row">
+            <div class="chip">Department: ${escapeHtml(issue.department)}</div>
+            <div class="chip">Reports: ${issue.reportcount}</div>
+          </div>
+          ${issue.deptemail ? `<div class="chip">${escapeHtml(issue.deptemail)}</div>` : ''}
+          ${issue.tweeturl ? `<a class="chip" href="${issue.tweeturl}" target="_blank" rel="noopener noreferrer">Open Tweet</a>` : ''}`;
+      } catch (err) {
+        box.innerHTML = `<div class="muted">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function trackIssueById(id) {
+      showPage('track');
+      document.getElementById('trackInput').value = id;
+      fetchIssue();
+    }
+    window.trackIssueById = trackIssueById;
+
+    document.getElementById('refreshBtn').addEventListener('click', loadIssues);
+    document.getElementById('submitBtn').addEventListener('click', submitComplaint);
+    document.getElementById('trackBtn').addEventListener('click', fetchIssue);
+    document.getElementById('resetBtn').addEventListener('click', () => window.location.reload());
+    document.getElementById('myLocationBtn').addEventListener('click', () => {
+      navigator.geolocation.getCurrentPosition(pos => {
+        selectedLat = pos.coords.latitude;
+        selectedLng = pos.coords.longitude;
+        if (reportMarker) reportMap.removeLayer(reportMarker);
+        reportMarker = L.marker([selectedLat, selectedLng]).addTo(reportMap);
+        reportMap.setView([selectedLat, selectedLng], 15);
+        document.getElementById('coordsChip').textContent = `${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
+      }, () => alert('Could not access your location.'));
+    });
+    document.getElementById('searchInput').addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      const filtered = issues.filter(issue => [issue.locationname, issue.category, issue.status, issue.department].join(' ').toLowerCase().includes(q));
+      renderIssues(filtered);
+    });
+    document.getElementById('uploadBox').addEventListener('click', () => document.getElementById('imageInput').click());
+    document.getElementById('imageInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      selectedImage = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.getElementById('previewImage');
+        img.src = ev.target.result;
+        img.hidden = false;
+        document.getElementById('uploadText').hidden = true;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    window.addEventListener('load', () => {
+      initThemeToggle();   // new line
+      initMaps();
+      loadIssues();
+      loadHeatmap();
+    });
+  </script>
+</body>
+</html>
